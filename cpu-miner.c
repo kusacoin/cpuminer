@@ -469,14 +469,28 @@ static bool gbt_work_decode(const json_t *val, struct work *work)
 		cbtx[4] = 1; /* in-counter */
 		memset(cbtx+5, 0x00, 32); /* prev txout hash */
 		le32enc((uint32_t *)(cbtx+37), 0xffffffff); /* prev txout index */
-		cbtx_size = 43;
 		/* BIP 34: height in coinbase */
-		for (n = work->height; n; n >>= 8) {
-			cbtx[cbtx_size++] = n & 0xff;
-			if (n < 0x100 && n >= 0x80)
-				cbtx[cbtx_size++] = 0;
+		if (work->height == 0)
+		{
+			cbtx[42] = 0x00;
+			cbtx[43] = 0x00;
+			cbtx_size = 44;
 		}
-		cbtx[42] = cbtx_size - 43;
+		else if (work->height <= 16)
+		{
+			cbtx[42] = work->height + 0x50;
+			cbtx[43] = 0x00;
+			cbtx_size = 44;
+		}
+		else
+		{
+			cbtx_size = 43;
+			for (n = work->height; n; n >>= 8)
+				cbtx[cbtx_size++] = n & 0xff;
+			if (cbtx[cbtx_size-1] & 0x80)
+				cbtx[cbtx_size++] = 0;
+			cbtx[42] = cbtx_size - 43;
+		}
 		cbtx[41] = cbtx_size - 42; /* scriptsig length */
 		le32enc((uint32_t *)(cbtx+cbtx_size), 0xffffffff); /* sequence */
 		cbtx_size += 4;
